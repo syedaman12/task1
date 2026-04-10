@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SNIP — URL Shortener</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2e;
+    --accent: #c8f03c;
+    --accent2: #ff6b35;
+    --text: #e8e8f0;
+    --muted: #555570;
+    --card: #0f0f18;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200, 240, 60, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200, 240, 60, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow blob */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 700px;
+    height: 500px;
+    background: radial-gradient(ellipse, rgba(200, 240, 60, 0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    margin-bottom: 56px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  h1 span { color: var(--accent); }
+
+  .tagline {
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 10px;
+  }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 20px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .card:nth-child(2) { animation-delay: 0.1s; }
+  .card:nth-child(3) { animation-delay: 0.2s; }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  input[type="url"] {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input[type="url"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(200, 240, 60, 0.08);
+  }
+
+  input::placeholder { color: var(--muted); }
+
+  button.shorten-btn {
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 22px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+
+  button.shorten-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  button.shorten-btn:active { transform: translateY(0); }
+  button.shorten-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Result */
+  .result-box {
+    display: none;
+    margin-top: 20px;
+    background: var(--surface);
+    border: 1px solid rgba(200, 240, 60, 0.25);
+    border-radius: 10px;
+    padding: 16px 18px;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  }
+
+  .result-box.show { display: flex; gap: 12px; align-items: center; }
+
+  .result-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .result-url {
+    font-size: 0.9rem;
+    color: var(--text);
+    word-break: break-all;
+    flex: 1;
+  }
+
+  .result-url a { color: var(--accent); text-decoration: none; }
+  .result-url a:hover { text-decoration: underline; }
+
+  button.copy-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  button.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  button.copy-btn.copied { border-color: var(--accent); color: var(--accent); background: rgba(200,240,60,0.08); }
+
+  /* Error */
+  .error-msg {
+    display: none;
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: rgba(255, 107, 53, 0.08);
+    border: 1px solid rgba(255, 107, 53, 0.3);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--accent2);
+  }
+  .error-msg.show { display: block; }
+
+  /* Stats table */
+  .stats-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .stats-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .stats-badge {
+    font-size: 0.65rem;
+    background: rgba(200,240,60,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(200,240,60,0.2);
+    border-radius: 20px;
+    padding: 3px 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+
+  thead th {
+    text-align: left;
+    color: var(--muted);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 11px 0;
+    vertical-align: middle;
+  }
+
+  td.code-cell a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  td.code-cell a:hover { text-decoration: underline; }
+
+  td.url-cell {
+    color: var(--muted);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .click-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: var(--text);
+    font-size: 0.72rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 30px 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  /* Loader */
+  .loader {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #0a0a0f;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 48px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    animation: fadeUp 0.6s 0.4s ease both;
+  }
+
+  footer span { color: var(--accent); }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">✂</div>
+      <div>
+        <h1>SN<span>IP</span></h1>
+      </div>
+    </div>
+    <p class="tagline">Paste long. Get short. Done.</p>
+  </header>
+
+  <div class="card">
+    <div class="input-row">
+      <input type="url" id="urlInput" placeholder="https://your-very-long-url.com/goes/here" autocomplete="off"/>
+      <button class="shorten-btn" id="shortenBtn" onclick="shorten()">SNIP IT</button>
+    </div>
+    <div class="result-box" id="resultBox">
+      <div style="flex:1">
+        <div class="result-label">Your short link</div>
+        <div class="result-url" id="resultUrl"></div>
+      </div>
+      <button class="copy-btn" id="copyBtn" onclick="copyUrl()">Copy</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="card" id="statsCard">
+    <div class="stats-header">
+      <span class="stats-title">Recent Links</span>
+      <span class="stats-badge" id="statsBadge">Live</span>
+    </div>
+    <div id="statsBody">
+      <div class="empty-state">No links yet — snip one above ✂</div>
+    </div>
+  </div>
+
+  <footer>Built with <span>Flask + SQLite</span> · SNIP URL Shortener</footer>
+</div>
+
+<script>
+  let currentShortUrl = '';
+
+  async function shorten() {
+    const input = document.getElementById('urlInput');
+    const btn = document.getElementById('shortenBtn');
+    const resultBox = document.getElementById('resultBox');
+    const errorMsg = document.getElementById('errorMsg');
+    const url = input.value.trim();
+
+    if (!url) { showError('Please enter a URL first.'); return; }
+
+    errorMsg.classList.remove('show');
+    resultBox.classList.remove('show');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span>';
+
+    try {
+      const res = await fetch('/api/shorten', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+
+      if (!res.ok) { showError(data.error || 'Something went wrong.'); return; }
+
+      currentShortUrl = data.short_url;
+      document.getElementById('resultUrl').innerHTML =
+        `<a href="${data.short_url}" target="_blank">${data.short_url}</a>`;
+      resultBox.classList.add('show');
+
+      const copyBtn = document.getElementById('copyBtn');
+      copyBtn.textContent = 'Copy';
+      copyBtn.classList.remove('copied');
+
+      await loadStats();
+    } catch (e) {
+      showError('Could not connect to server.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'SNIP IT';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  async function copyUrl() {
+    if (!currentShortUrl) return;
+    await navigator.clipboard.writeText(currentShortUrl);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/stats');
+      const rows = await res.json();
+      const body = document.getElementById('statsBody');
+
+      if (!rows.length) {
+        body.innerHTML = '<div class="empty-state">No links yet — snip one above ✂</div>';
+        return;
+      }
+
+      body.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Short Code</th>
+              <th>Original URL</th>
+              <th>Clicks</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td class="code-cell"><a href="/${r.short_code}" target="_blank">/${r.short_code}</a></td>
+                <td class="url-cell" title="${r.original_url}">${r.original_url}</td>
+                <td><span class="click-badge">↗ ${r.clicks}</span></td>
+                <td style="color:var(--muted)">${new Date(r.created_at).toLocaleDateString()}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) { /* silent */ }
+  }
+
+  // Allow Enter key
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') shorten();
+  });
+
+  // Load stats on page load
+  loadStats();
+</script>
+</body>
+</html>
